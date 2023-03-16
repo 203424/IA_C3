@@ -2,7 +2,7 @@ from random import randint, uniform, random, sample
 from itertools import combinations, product
 
 class genetic_algorithm:
-    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, cross_rate):
+    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation, cross_rate):
         self.num_layers = num_layers #rango ej. (3,6)
         self.num_neurons = num_neurons #rango ej. (64,256)
         self.function = ['relu','softmax','sigmoide']
@@ -10,6 +10,10 @@ class genetic_algorithm:
         self.pop_size = pop_size
         self.num_generations = num_generations
         self.mutation_rate = mut_rate
+        self.mutation_pos = mut_rate_pos
+        self.mutation_layer = mut_rate_layer
+        self.mutation_n_neurons = mut_rate_neurons
+        self.mutation_f_activation = mut_rate_f_activation
         self.crossover_rate = cross_rate
         self.population = []
     
@@ -74,20 +78,39 @@ class genetic_algorithm:
             self.children += [child_1, child_2]
 
     def mutate(self):
-        for child in range(len(self.children)):
-            mutate_child = self.children[child].copy()
+        for child in self.children:
             if random() < self.mutation_rate:
-                for pos_gen in range(len(mutate_child)):
-                    if random() < self.mutation_rate:
-                        mutate_child[pos_gen] = [round(uniform(*self.num_neurons)),self.function[round(uniform(0,len(self.function)-1))]]
-                self.children.pop(child)
-                self.children.insert(child, mutate_child)
+                child = self.mutate_child(child)
+            self.population.append(child)
 
-        self.population.extend(self.children)
+    def mutate_child(self, child):
+        mutate_child = child.copy()
+        for pos_gen in range(len(mutate_child)):
+            if random() < self.mutation_pos:
+                mutate_child = self.mutate_position(mutate_child, pos_gen)
+            if random() < self.mutation_layer:
+                mutate_child = self.mutate_layer(mutate_child, pos_gen)
+        return mutate_child
+
+    def mutate_position(self, child, pos_gen):
+        random_pos = round(uniform(0, len(child) - 1))
+        gen = child[pos_gen]
+        final_gen = child[random_pos]
+        child[pos_gen] = final_gen
+        child[random_pos] = gen
+        return child
+
+    def mutate_layer(self, child, pos_gen):
+        layer = child[pos_gen].copy()
+        if random() < self.mutation_n_neurons:
+            layer[0] = round(uniform(*self.num_neurons))
+        if random() < self.mutation_f_activation:
+            layer[1] = self.function[round(uniform(0, len(self.function) - 1))]
+        child[pos_gen] = layer
+        return child
     
     def pruning(self):
         pop_list = []
-        #se eliminan repetidos
         for p in self.population:
             if p not in pop_list:
                 pop_list.append(p)
@@ -109,9 +132,13 @@ class genetic_algorithm:
 ga = genetic_algorithm(
     num_layers=(3,6),
     num_neurons=(64,256),
-    pop_size=5, 
-    num_generations=100,
+    pop_size=10, 
+    num_generations=10,
     mut_rate=0.5,
+    mut_rate_pos=0.6,
+    mut_rate_layer=0.5,
+    mut_rate_neurons=0.5,
+    mut_rate_f_activation=0.5,
     cross_rate=0.6
 )
 ga.evaluate()
