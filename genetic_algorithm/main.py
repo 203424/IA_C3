@@ -1,11 +1,15 @@
 from random import randint, uniform, random, sample
 from itertools import combinations, product
+import numpy as np
+import sys, os
+sys.path.append("./neuronal_network") 
+from neuronal_network import neuronal_network
 
 class genetic_algorithm:
-    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation, cross_rate):
+    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation,num_trains, nn):
         self.num_layers = num_layers #rango ej. (3,6)
         self.num_neurons = num_neurons #rango ej. (64,256)
-        self.function = ['relu','softmax','sigmoide']
+        self.function = ['relu','softmax']
         self.pop_initial = randint(2,pop_size)
         self.pop_size = pop_size
         self.num_generations = num_generations
@@ -14,14 +18,31 @@ class genetic_algorithm:
         self.mutation_layer = mut_rate_layer
         self.mutation_n_neurons = mut_rate_neurons
         self.mutation_f_activation = mut_rate_f_activation
-        self.crossover_rate = cross_rate
+        self.num_trains = num_trains
         self.population = []
+        self.nn = nn
     
-    def calculate_aptitude(self, individual): #deberá cambiarse por la funcion a utilizar
-        total_neurons = 0
-        for gen in individual:
-            total_neurons += gen[0]
-        return total_neurons
+    def calculate_aptitude(self, individual):
+        print('Calculando aptitud de ', individual)
+        num_layers_dense = len(individual)
+        num_neurons = [x[0] for x in individual]
+        activation = [x[1] for x in individual]
+
+        accurancy_trains=[]
+
+        self.nn.define_model(
+                num_layers_dense,
+                num_neurons,
+                activation
+            )
+
+        for i in range(self.num_trains):
+            print('Train ',i)
+            self.nn.train_model()
+            print(self.nn.accuracy_list)
+            accurancy_trains.append(np.mean(self.nn.accuracy_list))
+
+        return np.mean(accurancy_trains)
 
     def code_individual(self):
         individual = []
@@ -34,6 +55,7 @@ class genetic_algorithm:
             individual = self.code_individual()
             if individual not in self.population:
                 self.population.append(individual)
+        self.fitness = [self.calculate_aptitude(x) for x in self.population]
     
     def select_parents(self):
         pop_sorted = sorted(list(map(lambda x,y:[x,y], self.fitness,self.population)), reverse=True)
@@ -49,7 +71,6 @@ class genetic_algorithm:
 
     def crossover(self):
         self.children = []
-        self.fitness = [self.calculate_aptitude(x) for x in self.population]
         parents = self.select_parents()
         for p in parents:
             g_parent = [[], []]
@@ -81,6 +102,8 @@ class genetic_algorithm:
         for child in self.children:
             if random() < self.mutation_rate:
                 child = self.mutate_child(child)
+
+            self.fitness.append(self.calculate_aptitude(child))
             self.population.append(child)
 
     def mutate_child(self, child):
@@ -111,15 +134,19 @@ class genetic_algorithm:
     
     def pruning(self):
         pop_list = []
-        for p in self.population:
-            if p not in pop_list:
-                pop_list.append(p)
+        fitness_list = []
 
-        self.fitness = [self.calculate_aptitude(x) for x in pop_list]
+        for i in range(len(self.population)):
+            if self.population[i] not in pop_list:
+                pop_list.append(self.population[i])
+                fitness_list.append(self.fitness[i])
 
-        pop_sorted = sorted(list(map(lambda x,y:[x,y], self.fitness,pop_list)), reverse=True)
+        pop_sorted = sorted(list(map(lambda x,y:[x,y], fitness_list,pop_list)), reverse=True)
         
         self.population = [x[1] for x in pop_sorted[:self.pop_size]]
+        self.fitness = [x[0] for x in pop_sorted[:self.pop_size]]
+
+        print("Poblacion final",*pop_sorted,sep='\n')
 
     def evaluate(self):
         self.generate_population()
@@ -128,17 +155,25 @@ class genetic_algorithm:
             self.mutate()
             self.pruning()
             print("Generation", generation+1, "- Best fitness:", self.fitness[0])
+        print("mejor individuo", self.population[0])
 
+    # def show_result(self):
+    #     pass
+
+nn = neuronal_network()
+nn.preprocess_images()
 ga = genetic_algorithm(
-    num_layers=(3,6),
-    num_neurons=(64,256),
-    pop_size=10, 
+    num_layers=(2,3),
+    num_neurons=(30,70),
+    pop_size=5, 
     num_generations=10,
     mut_rate=0.5,
     mut_rate_pos=0.6,
     mut_rate_layer=0.5,
     mut_rate_neurons=0.5,
     mut_rate_f_activation=0.5,
-    cross_rate=0.6
+    num_trains=10,
+    nn=nn
 )
+
 ga.evaluate()
