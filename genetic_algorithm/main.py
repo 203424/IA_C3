@@ -1,6 +1,9 @@
 from random import randint, uniform, random, sample
 from itertools import combinations, product
+import multiprocessing as mp
 import numpy as np
+from tkinter import Tk,Frame,Label, Button, Entry
+import matplotlib.pyplot as plt
 import sys
 sys.path.append("./neuronal_network") 
 from neuronal_network import neuronal_network
@@ -21,6 +24,12 @@ class genetic_algorithm:
         self.num_trains = num_trains
         self.population = []
         self.nn = nn
+        #results
+        self.generations = []
+        self.accurancies_list = []
+        self.best_fitness = []
+        self.avg_fitness = []
+        self.worst_fitness = []
     
     def calculate_aptitude(self, individual):
         print('Calculando aptitud de ', individual)
@@ -39,10 +48,22 @@ class genetic_algorithm:
         for i in range(self.num_trains):
             print('Train ',i)
             self.nn.train_model()
-            print(self.nn.accuracy_list)
-            accurancy_trains.append(np.mean(self.nn.accuracy_list))
+            # print(self.nn.accuracy_list) #precision en cada fold
+            accurancy_trains.append(np.mean(self.nn.accuracy_list)) #precision de cada entrenamiento
 
-        return np.mean(accurancy_trains)
+        self.accurancies_list.append(accurancy_trains)
+
+        return np.mean(accurancy_trains)#precision media del modelo
+
+    # def evaluar_poblacion(self):
+    #     num_cpus = mp.cpu_count()
+    #     print("num cpu: ",num_cpus)
+    #     pool = mp.Pool(processes=num_cpus)
+    #     aptitudes = pool.map(self.calculate_aptitude, self.population)
+    #     pool.close()
+    #     pool.join()
+    #     print(aptitudes)
+    #     return aptitudes
 
     def code_individual(self):
         individual = []
@@ -56,6 +77,7 @@ class genetic_algorithm:
             if individual not in self.population:
                 self.population.append(individual)
         self.fitness = [self.calculate_aptitude(x) for x in self.population]
+        # self.fitness = self.evaluar_poblacion()
     
     def select_parents(self):
         pop_sorted = sorted(list(map(lambda x,y:[x,y], self.fitness,self.population)), reverse=True)
@@ -134,46 +156,203 @@ class genetic_algorithm:
     def pruning(self):
         pop_list = []
         fitness_list = []
+        aux_accurancies_list = []
 
         for i in range(len(self.population)):
             if self.population[i] not in pop_list:
                 pop_list.append(self.population[i])
                 fitness_list.append(self.fitness[i])
+                aux_accurancies_list.append(self.accurancies_list[i])
 
-        pop_sorted = sorted(list(map(lambda x,y:[x,y], fitness_list,pop_list)), reverse=True)
+        self.best_fitness.append(max(fitness_list))
+        self.avg_fitness.append(fitness_list[int(len(fitness_list)/2)])
+        self.worst_fitness.append(min(fitness_list))
+
+        pop_sorted = sorted(list(map(lambda x,y,z:[x,y,z], fitness_list,pop_list,aux_accurancies_list)), reverse=True)
         
-        self.population = [x[1] for x in pop_sorted[:self.pop_size]]
         self.fitness = [x[0] for x in pop_sorted[:self.pop_size]]
+        self.population = [x[1] for x in pop_sorted[:self.pop_size]]
+        self.accurancies_list = [x[2] for x in pop_sorted[:self.pop_size]]
 
-        print("Poblacion final",*pop_sorted,sep='\n')
+        print("Poblacion final")
+        for i in pop_sorted:
+            print(i[0],i[1])
 
     def evaluate(self):
         self.generate_population()
+        self.generations.append([self.population.copy(),self.accurancies_list.copy()]) #generacion 0
         for generation in range(self.num_generations):
             self.crossover()
             self.mutate()
             self.pruning()
+            self.generations.append([self.population.copy(),self.accurancies_list.copy()])
             print("Generation", generation+1, "- Best fitness:", self.fitness[0])
         print("mejor individuo", self.population[0])
+        mvp['text'] = "Mejor modelo: " + "".join(self.population[0])
+        accurancy['text'] = "Presición: " + str(self.fitness[0])
+        self.show_result()
+
+    def generate_tables(self):
+        for i in range(len(self.generations)):
+            fig, ax = plt.subplots()
+            columns_lbl = ('ID', 'Individuo', 'Precisión min',
+                            'Precision media',
+                            'Precisión max',)
+            row = []
+            print(f'\nGeneracion {i}')
+            print(self.generations[i])
+            individual,accurancy_trains  =  self.generations[i]
+            for j in range(len(individual)):
+                print(f'Individuo {j}: {individual[j]}')
+                print(f'p_min: {min(accurancy_trains[j])} - p_mean: {np.mean(accurancy_trains[j])} - p_max: {max(accurancy_trains[j])} \n')
+                row.append([j,individual[j],min(accurancy_trains[j]),np.mean(accurancy_trains[j]),max(accurancy_trains[j])])
+            ax.set_title("Tabla generación " + str(i))
+            ax.axis('off')
+            ax.table(
+                cellText=row,
+                colLabels=columns_lbl,
+                loc='center',
+            )
+            if(i == 0):
+                plt.savefig("./genetic_algorithm/graficas/Tabla generación 0 (poblacion inicial).png", dpi=1080,
+                        transparent=False,
+                        bbox_inches='tight')
+            else:
+                plt.savefig("./genetic_algorithm/graficas/Tabla generación " + str(i)+".png", dpi=1080,
+                            transparent=False,bbox_inches='tight')
+            plt.close()
+
+    def graph_best_individual(self):
+        fig,ax = plt.subplots(dpi=90, figsize=(10,5))
+        plt.suptitle('Evolución de los individuos')
+        ax.set_xlabel('Generacion')
+        ax.set_ylabel('Aptitud')
+        x_values = np.arange(self.num_generations)
+
+        ax.plot(x_values, self.worst_fitness,marker='o',linestyle='dashed', color='r', label='Peor')
+        ax.plot(x_values, self.avg_fitness,marker='o',linestyle='dashed', color='g', label='Media')
+        ax.plot(x_values, self.best_fitness,marker='o',linestyle='dashed', color='b', label='Mejor')
+        ax.legend()
+
+        plt.grid()
+
+        plt.savefig("./genetic_algorithm/graficas/Evolución de los individuos.png", dpi=1080,
+                            transparent=False,bbox_inches='tight')
+
+        plt.show()
 
     def show_result(self):
-        #Mostrar resultados
-        pass
+        self.generate_tables()
+        self.graph_best_individual()
+
 #Ejecutar AG
 nn = neuronal_network()
 nn.preprocess_images()
 ga = genetic_algorithm(
-    num_layers=(2,3),
-    num_neurons=(30,70),
-    pop_size=5, 
-    num_generations=5,
-    mut_rate=0.5,
-    mut_rate_pos=0.6,
-    mut_rate_layer=0.5,
-    mut_rate_neurons=0.5,
-    mut_rate_f_activation=0.5,
-    num_trains=5,
-    nn=nn
+    num_layers=(2,3), #2,3
+    num_neurons=(30,70), #30,70
+    pop_size=5, #5
+    num_generations=2, #10
+    mut_rate=0.5, #0.5
+    mut_rate_pos=0.6, #0.6
+    mut_rate_layer=0.7, #0.7
+    mut_rate_neurons=0.5, #0.5
+    mut_rate_f_activation=0.5, #0.5
+    num_trains=5, #5
+    nn=nn,
 )
-
 ga.evaluate()
+
+def iniciar():
+    aux = entry_num_layers.get().split(",",2)
+    num_layers = (int(aux[0]),int(aux[1]))
+    aux = entry_num_neurons.get().split(",",2)
+    num_neurons = (int(aux[0]),int(aux[1]))
+    pop_size = int(entry_pop_size.get())
+    num_generations = int(entry_generaciones.get())
+    mut_rate = float(entry_mut_rate.get())
+    mut_rate_pos = float(entry_mut_rate_pos.get())
+    mut_rate_layer = float(entry_mut_rate_layer.get())
+    mut_rate_neurons = float(entry_mut_rate_neurons.get())
+    mut_rate_f_activation = float(entry_mut_rate_f_activation.get())
+    num_trains = int(entry_num_trains.get())
+    #Ejecutar AG
+    nn = neuronal_network()
+    nn.preprocess_images()
+    ga = genetic_algorithm(
+        num_layers, #2,3
+        num_neurons, #30,70
+        pop_size, #5
+        num_generations, #10
+        mut_rate, #0.5
+        mut_rate_pos, #0.6
+        mut_rate_layer, #0.7
+        mut_rate_neurons, #0.5
+        mut_rate_f_activation, #0.5
+        num_trains, #5
+        nn,
+    )
+    ga.evaluate()
+
+
+'''Interface'''
+tk = Tk()
+tk.geometry('750x250')
+tk.wm_title('Algoritmo genético para determinar la mejor arquitectura de una red neuronal convolucional')
+tk.minsize(width=800, height=600)
+tk.config(background='#fefffe')
+
+form_frame = Frame(tk,background='#fefffe',bd=3)
+form_frame.grid(column=0, row=0)
+
+mvp = Label(form_frame, text="Mejor modelo: ???", font='Arial 20')
+mvp.grid(column=0, row=11, padx=5, pady=5, sticky="EW")
+accurancy = Label(form_frame, text="Presición: ???", font='Arial 20')
+accurancy.grid(column=0, row=12, padx=5, pady=5, sticky="EW")
+
+font_lbl = 'Arial 14'
+
+#generaciones
+Label(form_frame, font=font_lbl, text='Generaciones: ').grid(column=0, row=0, sticky='E', padx=5, pady=5)
+entry_generaciones = Entry(form_frame,  font=font_lbl)
+entry_generaciones.grid(column=1, row=0, sticky='W', padx=5, pady=5)
+#pop_size
+Label(form_frame, font=font_lbl, text='Población máxima: ').grid(column=0, row=1, sticky='E', padx=5, pady=5)
+entry_pop_size = Entry(form_frame,  font=font_lbl)
+entry_pop_size.grid(column=1, row=1, sticky='W', padx=5, pady=5)
+#num_layers
+Label(form_frame, font=font_lbl, text='Numero de capas (rango): ').grid(column=0, row=2, sticky='E', padx=5, pady=5)
+entry_num_layers = Entry(form_frame,  font=font_lbl)
+entry_num_layers.grid(column=1, row=2, sticky='W', padx=5, pady=5)
+#num_neurons
+Label(form_frame, font=font_lbl, text='Numero de neuronas (rango): ').grid(column=0, row=3, sticky='E', padx=5, pady=5)
+entry_num_neurons = Entry(form_frame,  font=font_lbl)
+entry_num_neurons.grid(column=1, row=3, sticky='W', padx=5, pady=5)
+#Probabilidad de mutacion
+Label(form_frame, font=font_lbl, text='Probabilidad de mutación: ').grid(column=0, row=4, sticky='E', padx=5, pady=5)
+entry_mut_rate = Entry(form_frame,  font=font_lbl)
+entry_mut_rate.grid(column=1, row=4, sticky='W', padx=5, pady=5)
+#Probabilidad de mutacion (pos)
+Label(form_frame, font=font_lbl, text='Probabilidad de mutar la posición: ').grid(column=0, row=5, sticky='E', padx=5, pady=5)
+entry_mut_rate_pos = Entry(form_frame,  font=font_lbl)
+entry_mut_rate_pos.grid(column=1, row=5, sticky='W', padx=5, pady=5)
+#Probabilidad de mutacion (gen)
+Label(form_frame, font=font_lbl, text='Probabilidad de mutar la capa: ').grid(column=0, row=6, sticky='E', padx=5, pady=5)
+entry_mut_rate_layer = Entry(form_frame,  font=font_lbl)
+entry_mut_rate_layer.grid(column=1, row=6, sticky='W', padx=5, pady=5)
+#Probabilidad de mutacion (num_neurons)
+Label(form_frame, font=font_lbl, text='Probabilidad de mutar el numero de neuronas: ').grid(column=0, row=7, sticky='E', padx=5, pady=5)
+entry_mut_rate_neurons = Entry(form_frame,  font=font_lbl)
+entry_mut_rate_neurons.grid(column=1, row=7, sticky='W', padx=5, pady=5)
+#Probabilidad de mutacion (f_activation)
+Label(form_frame, font=font_lbl, text='Probabilidad de mutar la función de activacion: ').grid(column=0, row=8, sticky='E', padx=5, pady=5)
+entry_mut_rate_f_activation = Entry(form_frame,  font=font_lbl)
+entry_mut_rate_f_activation.grid(column=1, row=8, sticky='W', padx=5, pady=5)
+#Numero de entrenamientos (MonteCarlo)
+Label(form_frame, font=font_lbl, text='Numero de muestras para método Monte Carlo (entrenamientos): ').grid(column=0, row=9, sticky='E', padx=5, pady=5)
+entry_num_trains = Entry(form_frame,  font=font_lbl)
+entry_num_trains.grid(column=1, row=9, sticky='W', padx=5, pady=5)
+
+Button(form_frame,font=font_lbl, text='Iniciar', width=15, bg='#D580FF',fg='white', command=iniciar).grid(column=0, row=10, sticky='EW', pady=5, padx=8, columnspan=2)
+
+# tk.mainloop()
