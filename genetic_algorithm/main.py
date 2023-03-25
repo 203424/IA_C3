@@ -1,6 +1,5 @@
 from random import randint, uniform, random, sample
 from itertools import combinations, product
-import multiprocessing as mp
 import numpy as np
 from tkinter import Tk,Frame,Label, Button, Entry
 import matplotlib.pyplot as plt
@@ -32,7 +31,6 @@ class genetic_algorithm:
         self.worst_fitness = []
     
     def calculate_aptitude(self, individual):
-        print('Calculando aptitud de ', individual)
         num_layers_dense = len(individual)
         num_neurons = [x[0] for x in individual]
         activation = [x[1] for x in individual]
@@ -46,24 +44,12 @@ class genetic_algorithm:
             )
 
         for i in range(self.num_trains):
-            print('Train ',i)
             self.nn.train_model()
-            # print(self.nn.accuracy_list) #precision en cada fold
             accurancy_trains.append(np.mean(self.nn.accuracy_list)) #precision de cada entrenamiento
 
         self.accurancies_list.append(accurancy_trains)
 
         return np.mean(accurancy_trains)#precision media del modelo
-
-    # def evaluar_poblacion(self):
-    #     num_cpus = mp.cpu_count()
-    #     print("num cpu: ",num_cpus)
-    #     pool = mp.Pool(processes=num_cpus)
-    #     aptitudes = pool.map(self.calculate_aptitude, self.population)
-    #     pool.close()
-    #     pool.join()
-    #     print(aptitudes)
-    #     return aptitudes
 
     def code_individual(self):
         individual = []
@@ -77,7 +63,6 @@ class genetic_algorithm:
             if individual not in self.population:
                 self.population.append(individual)
         self.fitness = [self.calculate_aptitude(x) for x in self.population]
-        # self.fitness = self.evaluar_poblacion()
     
     def select_parents(self):
         pop_sorted = sorted(list(map(lambda x,y:[x,y], self.fitness,self.population)), reverse=True)
@@ -174,10 +159,6 @@ class genetic_algorithm:
         self.population = [x[1] for x in pop_sorted[:self.pop_size]]
         self.accurancies_list = [x[2] for x in pop_sorted[:self.pop_size]]
 
-        print("Poblacion final")
-        for i in pop_sorted:
-            print(i[0],i[1])
-
     def evaluate(self):
         self.generate_population()
         self.generations.append([self.population.copy(),self.accurancies_list.copy()]) #generacion 0
@@ -188,24 +169,21 @@ class genetic_algorithm:
             self.generations.append([self.population.copy(),self.accurancies_list.copy()])
             print("Generation", generation+1, "- Best fitness:", self.fitness[0])
         print("mejor individuo", self.population[0])
-        mvp['text'] = "Mejor modelo: " + "".join(self.population[0])
+        mvp['text'] = "Mejor modelo: " + str(self.population[0])
         accurancy['text'] = "Presición: " + str(self.fitness[0])
         self.show_result()
 
     def generate_tables(self):
         for i in range(len(self.generations)):
             fig, ax = plt.subplots()
-            columns_lbl = ('ID', 'Individuo', 'Precisión min',
-                            'Precision media',
-                            'Precisión max',)
+            columns_lbl = ('ID', 'Individuo',
+                            'Precision media (aptitud)',)
             row = []
-            print(f'\nGeneracion {i}')
-            print(self.generations[i])
             individual,accurancy_trains  =  self.generations[i]
             for j in range(len(individual)):
-                print(f'Individuo {j}: {individual[j]}')
-                print(f'p_min: {min(accurancy_trains[j])} - p_mean: {np.mean(accurancy_trains[j])} - p_max: {max(accurancy_trains[j])} \n')
-                row.append([j,individual[j],min(accurancy_trains[j]),np.mean(accurancy_trains[j]),max(accurancy_trains[j])])
+                # print(f'Individuo {j}: {individual[j]}')
+                # print(f'p_mean: {np.mean(accurancy_trains[j])}\n')
+                row.append([j,individual[j],np.mean(accurancy_trains[j])])
             ax.set_title("Tabla generación " + str(i))
             ax.axis('off')
             ax.table(
@@ -239,29 +217,29 @@ class genetic_algorithm:
         plt.savefig("./genetic_algorithm/graficas/Evolución de los individuos.png", dpi=1080,
                             transparent=False,bbox_inches='tight')
 
-        plt.show()
+        plt.show(block=False)
 
     def show_result(self):
         self.generate_tables()
         self.graph_best_individual()
 
 #Ejecutar AG
-nn = neuronal_network()
-nn.preprocess_images()
-ga = genetic_algorithm(
-    num_layers=(2,3), #2,3
-    num_neurons=(30,70), #30,70
-    pop_size=5, #5
-    num_generations=2, #10
-    mut_rate=0.5, #0.5
-    mut_rate_pos=0.6, #0.6
-    mut_rate_layer=0.7, #0.7
-    mut_rate_neurons=0.5, #0.5
-    mut_rate_f_activation=0.5, #0.5
-    num_trains=5, #5
-    nn=nn,
-)
-ga.evaluate()
+# nn = neuronal_network()
+# nn.preprocess_images()
+# ga = genetic_algorithm(
+#     num_layers=(2,3), #2,3
+#     num_neurons=(30,70), #30,70
+#     pop_size=5, #5
+#     num_generations=2, #10
+#     mut_rate=0.5, #0.5
+#     mut_rate_pos=0.6, #0.6
+#     mut_rate_layer=0.7, #0.7
+#     mut_rate_neurons=0.5, #0.5
+#     mut_rate_f_activation=0.5, #0.5
+#     num_trains=5, #5
+#     nn=nn,
+# )
+# ga.evaluate()
 
 def iniciar():
     aux = entry_num_layers.get().split(",",2)
@@ -280,20 +258,19 @@ def iniciar():
     nn = neuronal_network()
     nn.preprocess_images()
     ga = genetic_algorithm(
-        num_layers, #2,3
-        num_neurons, #30,70
-        pop_size, #5
-        num_generations, #10
-        mut_rate, #0.5
-        mut_rate_pos, #0.6
-        mut_rate_layer, #0.7
-        mut_rate_neurons, #0.5
-        mut_rate_f_activation, #0.5
-        num_trains, #5
-        nn,
+        num_layers=(2,3), 
+        num_neurons=(60,100), 
+        pop_size=7, 
+        num_generations=25, 
+        mut_rate=0.5, 
+        mut_rate_pos=0.5, 
+        mut_rate_layer=0.8, 
+        mut_rate_neurons=0.7, 
+        mut_rate_f_activation=0.5, 
+        num_trains=1, 
+        nn=nn,
     )
     ga.evaluate()
-
 
 '''Interface'''
 tk = Tk()
@@ -355,4 +332,4 @@ entry_num_trains.grid(column=1, row=9, sticky='W', padx=5, pady=5)
 
 Button(form_frame,font=font_lbl, text='Iniciar', width=15, bg='#D580FF',fg='white', command=iniciar).grid(column=0, row=10, sticky='EW', pady=5, padx=8, columnspan=2)
 
-# tk.mainloop()
+tk.mainloop()
