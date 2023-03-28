@@ -3,12 +3,12 @@ from itertools import combinations, product
 import numpy as np
 from tkinter import Tk,Frame,Label, Button, Entry
 import matplotlib.pyplot as plt
-import sys
+import sys, os, shutil
 sys.path.append("./neuronal_network") 
 from neuronal_network import neuronal_network
 
 class genetic_algorithm:
-    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation,num_trains, nn):
+    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation, nn):
         self.num_layers = num_layers 
         self.num_neurons = num_neurons 
         self.function = ['relu','softmax']
@@ -20,7 +20,6 @@ class genetic_algorithm:
         self.mutation_layer = mut_rate_layer
         self.mutation_n_neurons = mut_rate_neurons
         self.mutation_f_activation = mut_rate_f_activation
-        self.num_trains = num_trains
         self.population = []
         self.nn = nn
         #results
@@ -35,21 +34,19 @@ class genetic_algorithm:
         num_neurons = [x[0] for x in individual]
         activation = [x[1] for x in individual]
 
-        accurancy_trains=[]
-
         self.nn.define_model(
                 num_layers_dense,
                 num_neurons,
                 activation
             )
 
-        for i in range(self.num_trains):
-            self.nn.train_model()
-            accurancy_trains.append(np.mean(self.nn.accuracy_list)) #precision de cada entrenamiento
+        self.nn.train_model(epochs=20)
 
-        self.accurancies_list.append(accurancy_trains)
+        # print(f'{individual}, - fit: {np.mean(self.nn.accuracy_list)}')
 
-        return np.mean(accurancy_trains)#precision media del modelo
+        self.accurancies_list.append(np.mean(self.nn.accuracy_list))
+
+        return np.mean(self.nn.accuracy_list)#precision media del modelo
 
     def code_individual(self):
         individual = []
@@ -155,6 +152,8 @@ class genetic_algorithm:
 
         pop_sorted = sorted(list(map(lambda x,y,z:[x,y,z], fitness_list,pop_list,aux_accurancies_list)), reverse=True)
         
+        # print('pop sorted: ',*pop_sorted,sep='\n')
+
         self.fitness = [x[0] for x in pop_sorted[:self.pop_size]]
         self.population = [x[1] for x in pop_sorted[:self.pop_size]]
         self.accurancies_list = [x[2] for x in pop_sorted[:self.pop_size]]
@@ -169,8 +168,15 @@ class genetic_algorithm:
             self.generations.append([self.population.copy(),self.accurancies_list.copy()])
             print("Generation", generation+1, "- Best fitness:", self.fitness[0])
         print("mejor individuo", self.population[0])
+        #Se hace un ultimo entrenamiento de la red con el mejor modelo
+        num_layers_dense = len(self.population[0])
+        num_neurons = [x[0] for x in self.population[0]]
+        activation = [x[1] for x in self.population[0]]
+        self.nn.define_model(num_layers_dense,num_neurons,activation)
+        self.nn.train_model(epochs=20)
+        self.nn.save_model()
         mvp['text'] = "Mejor modelo: " + str(self.population[0])
-        accurancy['text'] = "Presición: " + str(self.fitness[0])
+        accurancy['text'] = "Precisión: " + str(np.mean(self.nn.accuracy_list))
         self.show_result()
 
     def generate_tables(self):
@@ -179,11 +185,9 @@ class genetic_algorithm:
             columns_lbl = ('ID', 'Individuo',
                             'Precision media (aptitud)',)
             row = []
-            individual,accurancy_trains  =  self.generations[i]
+            individual,accurancy  =  self.generations[i]
             for j in range(len(individual)):
-                # print(f'Individuo {j}: {individual[j]}')
-                # print(f'p_mean: {np.mean(accurancy_trains[j])}\n')
-                row.append([j,individual[j],np.mean(accurancy_trains[j])])
+                row.append([j,individual[j], accurancy[j]])
             ax.set_title("Tabla generación " + str(i))
             ax.axis('off')
             ax.table(
@@ -220,26 +224,17 @@ class genetic_algorithm:
         plt.show(block=False)
 
     def show_result(self):
+        target_dir = './genetic_algorithm/graficas/'
+        
+        if not os.path.exists(target_dir):
+            os.mkdir(target_dir)
+        else:
+            shutil.rmtree(target_dir, ignore_errors=False, onerror=None)
+
+            os.mkdir(target_dir)
+
         self.generate_tables()
         self.graph_best_individual()
-
-#Ejecutar AG
-# nn = neuronal_network()
-# nn.preprocess_images()
-# ga = genetic_algorithm(
-#     num_layers=(2,3), #2,3
-#     num_neurons=(30,70), #30,70
-#     pop_size=5, #5
-#     num_generations=2, #10
-#     mut_rate=0.5, #0.5
-#     mut_rate_pos=0.6, #0.6
-#     mut_rate_layer=0.7, #0.7
-#     mut_rate_neurons=0.5, #0.5
-#     mut_rate_f_activation=0.5, #0.5
-#     num_trains=5, #5
-#     nn=nn,
-# )
-# ga.evaluate()
 
 def iniciar():
     aux = entry_num_layers.get().split(",",2)
@@ -253,21 +248,20 @@ def iniciar():
     mut_rate_layer = float(entry_mut_rate_layer.get())
     mut_rate_neurons = float(entry_mut_rate_neurons.get())
     mut_rate_f_activation = float(entry_mut_rate_f_activation.get())
-    num_trains = int(entry_num_trains.get())
+    folds = int(entry_folds.get())
     #Ejecutar AG
     nn = neuronal_network()
-    nn.preprocess_images()
+    nn.preprocess_images(folds)
     ga = genetic_algorithm(
-        num_layers=(2,3), 
-        num_neurons=(60,100), 
-        pop_size=7, 
-        num_generations=25, 
-        mut_rate=0.5, 
-        mut_rate_pos=0.5, 
-        mut_rate_layer=0.8, 
-        mut_rate_neurons=0.7, 
-        mut_rate_f_activation=0.5, 
-        num_trains=1, 
+        num_layers, 
+        num_neurons, 
+        pop_size, 
+        num_generations, 
+        mut_rate, 
+        mut_rate_pos, 
+        mut_rate_layer, 
+        mut_rate_neurons, 
+        mut_rate_f_activation,
         nn=nn,
     )
     ga.evaluate()
@@ -326,9 +320,9 @@ Label(form_frame, font=font_lbl, text='Probabilidad de mutar la función de acti
 entry_mut_rate_f_activation = Entry(form_frame,  font=font_lbl)
 entry_mut_rate_f_activation.grid(column=1, row=8, sticky='W', padx=5, pady=5)
 #Numero de entrenamientos (MonteCarlo)
-Label(form_frame, font=font_lbl, text='Numero de muestras para método Monte Carlo (entrenamientos): ').grid(column=0, row=9, sticky='E', padx=5, pady=5)
-entry_num_trains = Entry(form_frame,  font=font_lbl)
-entry_num_trains.grid(column=1, row=9, sticky='W', padx=5, pady=5)
+Label(form_frame, font=font_lbl, text='Cantidad de Folds: ').grid(column=0, row=9, sticky='E', padx=5, pady=5)
+entry_folds = Entry(form_frame,  font=font_lbl)
+entry_folds.grid(column=1, row=9, sticky='W', padx=5, pady=5)
 
 Button(form_frame,font=font_lbl, text='Iniciar', width=15, bg='#D580FF',fg='white', command=iniciar).grid(column=0, row=10, sticky='EW', pady=5, padx=8, columnspan=2)
 

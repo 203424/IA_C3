@@ -2,8 +2,7 @@
 # Created by https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,visualstudiocode,python
 # ruta dataset
-dataset/
-dataTest/
+data/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
