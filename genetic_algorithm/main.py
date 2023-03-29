@@ -30,6 +30,7 @@ class genetic_algorithm:
         self.worst_fitness = []
     
     def calculate_aptitude(self, individual):
+        print("Individuo: ",individual)
         num_layers_dense = len(individual)
         num_neurons = [x[0] for x in individual]
         activation = [x[1] for x in individual]
@@ -50,7 +51,7 @@ class genetic_algorithm:
 
     def code_individual(self):
         individual = []
-        for _ in range(round(uniform(*self.num_layers))):
+        for _ in range(int(uniform(*self.num_layers))):
             individual.append([round(uniform(*self.num_neurons)),self.function[round(uniform(0,len(self.function)-1))]])
         return individual
 
@@ -263,6 +264,23 @@ class genetic_algorithm:
         self.generate_tables()
         self.graph_best_individual()
 
+#Ejecutar AG
+nn = neuronal_network()
+nn.preprocess_images(3)
+ga = genetic_algorithm(
+    num_layers=(1,2), 
+    num_neurons=(40,100), 
+    pop_size=5, 
+    num_generations=1, 
+    mut_rate=0.5, 
+    mut_rate_pos=0.5, 
+    mut_rate_layer=0.5, 
+    mut_rate_neurons=0.5, 
+    mut_rate_f_activation=0.5,
+    nn=nn,
+)
+ga.evaluate()
+
 def iniciar():
     aux = entry_num_layers.get().split(",",2)
     num_layers = (int(aux[0]),int(aux[1]))
@@ -353,4 +371,4 @@ entry_folds.grid(column=1, row=9, sticky='W', padx=5, pady=5)
 
 Button(form_frame,font=font_lbl, text='Iniciar', width=15, bg='#D580FF',fg='white', command=iniciar).grid(column=0, row=10, sticky='EW', pady=5, padx=8, columnspan=2)
 
-tk.mainloop()
+# tk.mainloop()
