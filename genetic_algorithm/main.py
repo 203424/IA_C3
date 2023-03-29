@@ -110,15 +110,19 @@ class genetic_algorithm:
                     layer = randint(0,len(p[1])) - 1
                     #se intercambia para crear al nuevo hijo
                     child_2 = p[1].copy()
-                    child_1 = child_2.pop(layer)
+                    child_1 =[child_2.pop(layer)]
                     child_2.insert(layer,*p[0]) 
+
                 elif len(p[1]) == 1:
                     #definir la capa a intercambiar
                     layer = randint(0,len(p[0])) - 1
                     #se intercambia para crear al nuevo hijo
                     child_2 = p[0].copy()
-                    child_1 = child_2.pop(layer)
-                    child_2.insert(layer,*p[1]) 
+                    child_1 = [child_2.pop(layer)]
+                    child_2.insert(layer,*p[1])
+
+            print("hijo 1", child_1)
+            print("hijo 2", child_2)
             self.children += [child_1, child_2]
 
     def mutate(self):
@@ -265,21 +269,21 @@ class genetic_algorithm:
         self.graph_best_individual()
 
 #Ejecutar AG
-nn = neuronal_network()
-nn.preprocess_images(3)
-ga = genetic_algorithm(
-    num_layers=(1,2), 
-    num_neurons=(40,100), 
-    pop_size=5, 
-    num_generations=1, 
-    mut_rate=0.5, 
-    mut_rate_pos=0.5, 
-    mut_rate_layer=0.5, 
-    mut_rate_neurons=0.5, 
-    mut_rate_f_activation=0.5,
-    nn=nn,
-)
-ga.evaluate()
+# nn = neuronal_network()
+# nn.preprocess_images(3)
+# ga = genetic_algorithm(
+#     num_layers=(1,2), 
+#     num_neurons=(40,100), 
+#     pop_size=5, 
+#     num_generations=1, 
+#     mut_rate=0.5, 
+#     mut_rate_pos=0.5, 
+#     mut_rate_layer=0.5, 
+#     mut_rate_neurons=0.5, 
+#     mut_rate_f_activation=0.5,
+#     nn=nn,
+# )
+# ga.evaluate()
 
 def iniciar():
     aux = entry_num_layers.get().split(",",2)
@@ -371,4 +375,4 @@ entry_folds.grid(column=1, row=9, sticky='W', padx=5, pady=5)
 
 Button(form_frame,font=font_lbl, text='Iniciar', width=15, bg='#D580FF',fg='white', command=iniciar).grid(column=0, row=10, sticky='EW', pady=5, padx=8, columnspan=2)
 
-# tk.mainloop()
+tk.mainloop()
