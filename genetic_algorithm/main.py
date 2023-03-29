@@ -46,7 +46,7 @@ class genetic_algorithm:
 
         self.accurancies_list.append(np.mean(self.nn.accuracy_list))
 
-        return np.mean(self.nn.accuracy_list)#precision media del modelo
+        return np.mean(self.nn.accuracy_list) #precision media del modelo
 
     def code_individual(self):
         individual = []
@@ -81,31 +81,52 @@ class genetic_algorithm:
             child_1, child_2 = [], []
             crosspoint_max = min(len(p[0]), len(p[1])) - 1
             crosspoints = []
-            for i in range(2):
-                crosspoint_max = randint(1,crosspoint_max)
-                crosspoints_i = sorted(sample(range(1, len(p[i])), crosspoint_max))
-                crosspoints.append(crosspoints_i)
-            crosspoints = [crosspoints[0], crosspoints[1] + [len(p[1])]]
-            for i in range(2):
-                parent_frags = []
-                inicio = 0
-                for j in range(crosspoint_max):
-                    frag = p[i][inicio:crosspoints[i][j]]
-                    parent_frags.append(frag)
-                    inicio = crosspoints[i][j]
-                parent_frags.append(p[i][inicio:])
-                g_parent[i] = parent_frags
-            for i in range(len(g_parent[0])):
-                if i % 2 == 0:
-                    child_1, child_2 = child_1 + g_parent[0][i], child_2 + g_parent[1][i]
-                else:
-                    child_1, child_2 = child_1 + g_parent[1][i], child_2 + g_parent[0][i]
+            print("cr_m",crosspoint_max)
+            if crosspoint_max != 0:
+                for i in range(2):
+                    crosspoint_max = randint(1,crosspoint_max)
+                    print("cr_m_new",crosspoint_max)
+                    crosspoints_i = sorted(sample(range(1, len(p[i])), crosspoint_max))
+                    crosspoints.append(crosspoints_i)
+                crosspoints = [crosspoints[0], crosspoints[1] + [len(p[1])]]
+                for i in range(2):
+                    parent_frags = []
+                    inicio = 0
+                    for j in range(crosspoint_max):
+                        frag = p[i][inicio:crosspoints[i][j]]
+                        parent_frags.append(frag)
+                        inicio = crosspoints[i][j]
+                    parent_frags.append(p[i][inicio:])
+                    g_parent[i] = parent_frags
+                for i in range(len(g_parent[0])):
+                    if i % 2 == 0:
+                        child_1, child_2 = child_1 + g_parent[0][i], child_2 + g_parent[1][i]
+                    else:
+                        child_1, child_2 = child_1 + g_parent[1][i], child_2 + g_parent[0][i]
+            else:
+                #cuando el individuo solo tiene 1 capa, los puntos de cruza maximos es igual a 0
+                #Determinar que padre tiene 1 capa
+                if len(p[0]) == 1:
+                    #definir la capa a intercambiar
+                    layer = randint(0,len(p[1])) - 1
+                    #se intercambia para crear al nuevo hijo
+                    child_2 = p[1].copy()
+                    child_1 = child_2.pop(layer)
+                    child_2.insert(layer,*p[0]) 
+                elif len(p[1]) == 1:
+                    #definir la capa a intercambiar
+                    layer = randint(0,len(p[1])) - 1
+                    #se intercambia para crear al nuevo hijo
+                    child_2 = p[0].copy()
+                    child_1 = child_2.pop(layer)
+                    child_2.insert(layer,*p[1]) 
             self.children += [child_1, child_2]
 
     def mutate(self):
         for child in self.children:
             if random() < self.mutation_rate:
                 child = self.mutate_child(child)
+            print(child)
             self.fitness.append(self.calculate_aptitude(child))
             self.population.append(child)
 
@@ -115,7 +136,10 @@ class genetic_algorithm:
             if random() < self.mutation_pos:
                 mutate_child = self.mutate_position(mutate_child, pos_gen)
             if random() < self.mutation_layer:
-                mutate_child = self.mutate_layer(mutate_child, pos_gen)
+                if len(mutate_child) != 1:
+                    mutate_child = self.mutate_layer(mutate_child, pos_gen)
+                elif len(mutate_child) == 1:
+                    mutate_child = self.mutate_layer(mutate_child,-1)
         return mutate_child
 
     def mutate_position(self, child, pos_gen):
@@ -127,7 +151,10 @@ class genetic_algorithm:
         return child
 
     def mutate_layer(self, child, pos_gen):
-        layer = child[pos_gen].copy()
+        if pos_gen != -1:
+            layer = child[pos_gen].copy()
+        elif pos_gen == -1:
+            layer = child[0]
         if random() < self.mutation_n_neurons:
             layer[0] = round(uniform(*self.num_neurons))
         if random() < self.mutation_f_activation:
@@ -146,12 +173,11 @@ class genetic_algorithm:
                 fitness_list.append(self.fitness[i])
                 aux_accurancies_list.append(self.accurancies_list[i])
 
-        self.best_fitness.append(max(fitness_list))
-        self.avg_fitness.append(fitness_list[int(len(fitness_list)/2)])
-        self.worst_fitness.append(min(fitness_list))
-
         pop_sorted = sorted(list(map(lambda x,y,z:[x,y,z], fitness_list,pop_list,aux_accurancies_list)), reverse=True)
         
+        self.best_fitness.append(pop_sorted[0][0])
+        self.avg_fitness.append(pop_sorted[0][int(len(pop_sorted)/2)])
+        self.worst_fitness.append(pop_sorted[0][len(pop_sorted)])
         # print('pop sorted: ',*pop_sorted,sep='\n')
 
         self.fitness = [x[0] for x in pop_sorted[:self.pop_size]]
@@ -174,9 +200,9 @@ class genetic_algorithm:
         activation = [x[1] for x in self.population[0]]
         self.nn.define_model(num_layers_dense,num_neurons,activation)
         self.nn.train_model(epochs=20)
-        self.nn.save_model()
+        self.nn.save_model() 
         mvp['text'] = "Mejor modelo: " + str(self.population[0])
-        accurancy['text'] = "Precisión: " + str(np.mean(self.nn.accuracy_list))
+        accurancy['text'] = "Precisión: " + str(self.fitness[0])
         self.show_result()
 
     def generate_tables(self):
@@ -278,7 +304,7 @@ form_frame.grid(column=0, row=0)
 
 mvp = Label(form_frame, text="Mejor modelo: ???", font='Arial 20')
 mvp.grid(column=0, row=11, padx=5, pady=5, sticky="EW")
-accurancy = Label(form_frame, text="Presición: ???", font='Arial 20')
+accurancy = Label(form_frame, text="Precisión: ???", font='Arial 20')
 accurancy.grid(column=0, row=12, padx=5, pady=5, sticky="EW")
 
 font_lbl = 'Arial 14'
