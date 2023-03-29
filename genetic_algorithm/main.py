@@ -131,6 +131,7 @@ class genetic_algorithm:
         mutate_child = child.copy()
         for pos_gen in range(len(mutate_child)):
             if len(mutate_child) != 1:
+                print("hijo a mutar: ",len(mutate_child), "hijo :",mutate_child)
                 if random() < self.mutation_pos:
                         mutate_child = self.mutate_position(mutate_child, pos_gen)
                 if random() < self.mutation_layer:
