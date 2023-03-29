@@ -81,11 +81,9 @@ class genetic_algorithm:
             child_1, child_2 = [], []
             crosspoint_max = min(len(p[0]), len(p[1])) - 1
             crosspoints = []
-            print("cr_m",crosspoint_max)
             if crosspoint_max != 0:
                 for i in range(2):
                     crosspoint_max = randint(1,crosspoint_max)
-                    print("cr_m_new",crosspoint_max)
                     crosspoints_i = sorted(sample(range(1, len(p[i])), crosspoint_max))
                     crosspoints.append(crosspoints_i)
                 crosspoints = [crosspoints[0], crosspoints[1] + [len(p[1])]]
@@ -115,7 +113,7 @@ class genetic_algorithm:
                     child_2.insert(layer,*p[0]) 
                 elif len(p[1]) == 1:
                     #definir la capa a intercambiar
-                    layer = randint(0,len(p[1])) - 1
+                    layer = randint(0,len(p[0])) - 1
                     #se intercambia para crear al nuevo hijo
                     child_2 = p[0].copy()
                     child_1 = child_2.pop(layer)
@@ -126,20 +124,19 @@ class genetic_algorithm:
         for child in self.children:
             if random() < self.mutation_rate:
                 child = self.mutate_child(child)
-            print(child)
             self.fitness.append(self.calculate_aptitude(child))
             self.population.append(child)
 
     def mutate_child(self, child):
         mutate_child = child.copy()
         for pos_gen in range(len(mutate_child)):
-            if random() < self.mutation_pos:
-                mutate_child = self.mutate_position(mutate_child, pos_gen)
-            if random() < self.mutation_layer:
-                if len(mutate_child) != 1:
+            if len(mutate_child) != 1:
+                if random() < self.mutation_pos:
+                        mutate_child = self.mutate_position(mutate_child, pos_gen)
+                if random() < self.mutation_layer:
                     mutate_child = self.mutate_layer(mutate_child, pos_gen)
-                elif len(mutate_child) == 1:
-                    mutate_child = self.mutate_layer(mutate_child,-1)
+            else:
+                mutate_child = self.mutate_layer(mutate_child,-1)
         return mutate_child
 
     def mutate_position(self, child, pos_gen):
@@ -159,7 +156,10 @@ class genetic_algorithm:
             layer[0] = round(uniform(*self.num_neurons))
         if random() < self.mutation_f_activation:
             layer[1] = self.function[round(uniform(0, len(self.function) - 1))]
-        child[pos_gen] = layer
+        if pos_gen != -1:
+            child[pos_gen] = layer
+        elif pos_gen == -1:
+            child[0] = layer
         return child
     
     def pruning(self):
@@ -176,8 +176,8 @@ class genetic_algorithm:
         pop_sorted = sorted(list(map(lambda x,y,z:[x,y,z], fitness_list,pop_list,aux_accurancies_list)), reverse=True)
         
         self.best_fitness.append(pop_sorted[0][0])
-        self.avg_fitness.append(pop_sorted[0][int(len(pop_sorted)/2)])
-        self.worst_fitness.append(pop_sorted[0][len(pop_sorted)])
+        self.avg_fitness.append(pop_sorted[int(len(pop_sorted)/2)][0])
+        self.worst_fitness.append(pop_sorted[len(pop_sorted)-1][0])
         # print('pop sorted: ',*pop_sorted,sep='\n')
 
         self.fitness = [x[0] for x in pop_sorted[:self.pop_size]]
