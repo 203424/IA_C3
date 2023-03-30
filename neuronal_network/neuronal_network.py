@@ -44,13 +44,13 @@ class neuronal_network:
         model.add(tf.keras.layers.Conv2D(128, (3, 3), activation='relu'),)
         model.add(tf.keras.layers.MaxPooling2D(2, 2),)
         model.add(tf.keras.layers.Flatten())
-
+        print(f"num_layers: {num_layers_dense} num_neurons: {num_neurons} f_act: {activation}")
         for i in range(num_layers_dense):
             model.add(tf.keras.layers.Dense(num_neurons[i], activation=activation[i]))
         
         model.add(tf.keras.layers.Dense(self.num_classes, activation='softmax'))
         
-        opt = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
+        opt = tf.keras.optimizers.Adam(learning_rate=0.005)
 
         model.compile(
             optimizer = opt,
@@ -61,18 +61,18 @@ class neuronal_network:
         self.model = model
         
     def train_model(self, epochs):
-        self.accuracy_list = []
 
         for fold, (train_index, val_index) in enumerate(self.kfold.split(self.images, self.labels)):
             # print(f'Train model for {fold} fold...')
             x_train, y_train = self.images[train_index], self.labels[train_index]
             x_val, y_val = self.images[val_index], self.labels[val_index]
 
-            history = self.model.fit(x_train, y_train, epochs, validation_data=(x_val, y_val), verbose=0)
+            history = self.model.fit(x_train, y_train, epochs=epochs, validation_data=(x_val, y_val),verbose=0)
             loss, accurancy = self.model.evaluate(x_val, y_val, verbose=0)
 
             self.history_list.append(history)
-            self.accuracy_list.append(accurancy*100)
+        self.accurancy = accurancy*100
+        print("accurancy: ",accurancy*100)
             
     def save_model(self):
         target_dir = './model/'
@@ -88,3 +88,6 @@ class neuronal_network:
         self.define_model(num_layers_dense, num_neurons, activation)
         self.train_model(20)
         self.save_model()
+
+# nn = neuronal_network()
+# nn.evaluate(1,[100],['relu'])

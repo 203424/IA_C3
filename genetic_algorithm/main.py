@@ -7,8 +7,9 @@ import sys, os, shutil
 sys.path.append("./neuronal_network") 
 from neuronal_network import neuronal_network
 
+nn = neuronal_network()
 class genetic_algorithm:
-    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation, nn):
+    def __init__(self, num_layers, num_neurons,pop_size,num_generations,mut_rate, mut_rate_pos, mut_rate_layer, mut_rate_neurons,mut_rate_f_activation):
         self.num_layers = num_layers 
         self.num_neurons = num_neurons 
         self.function = ['relu','softmax']
@@ -21,7 +22,6 @@ class genetic_algorithm:
         self.mutation_n_neurons = mut_rate_neurons
         self.mutation_f_activation = mut_rate_f_activation
         self.population = []
-        self.nn = nn
         #results
         self.generations = []
         self.accurancies_list = []
@@ -30,24 +30,21 @@ class genetic_algorithm:
         self.worst_fitness = []
     
     def calculate_aptitude(self, individual):
-        print("Individuo: ",individual)
         num_layers_dense = len(individual)
         num_neurons = [x[0] for x in individual]
         activation = [x[1] for x in individual]
 
-        self.nn.define_model(
+        nn.define_model(
                 num_layers_dense,
                 num_neurons,
                 activation
             )
 
-        self.nn.train_model(epochs=20)
+        nn.train_model(epochs=20)
 
-        # print(f'{individual}, - fit: {np.mean(self.nn.accuracy_list)}')
+        self.accurancies_list.append(nn.accurancy)
 
-        self.accurancies_list.append(np.mean(self.nn.accuracy_list))
-
-        return np.mean(self.nn.accuracy_list) #precision media del modelo
+        return nn.accurancy #precision media del modelo
 
     def code_individual(self):
         individual = []
@@ -120,9 +117,6 @@ class genetic_algorithm:
                     child_2 = p[0].copy()
                     child_1 = [child_2.pop(layer)]
                     child_2.insert(layer,*p[1])
-
-            print("hijo 1", child_1)
-            print("hijo 2", child_2)
             self.children += [child_1, child_2]
 
     def mutate(self):
@@ -136,7 +130,6 @@ class genetic_algorithm:
         mutate_child = child.copy()
         for pos_gen in range(len(mutate_child)):
             if len(mutate_child) != 1:
-                print("hijo a mutar: ",len(mutate_child), "hijo :",mutate_child)
                 if random() < self.mutation_pos:
                         mutate_child = self.mutate_position(mutate_child, pos_gen)
                 if random() < self.mutation_layer:
@@ -184,7 +177,8 @@ class genetic_algorithm:
         self.best_fitness.append(pop_sorted[0][0])
         self.avg_fitness.append(pop_sorted[int(len(pop_sorted)/2)][0])
         self.worst_fitness.append(pop_sorted[len(pop_sorted)-1][0])
-        # print('pop sorted: ',*pop_sorted,sep='\n')
+
+        print('pop sorted: ',*pop_sorted,sep='\n')
 
         self.fitness = [x[0] for x in pop_sorted[:self.pop_size]]
         self.population = [x[1] for x in pop_sorted[:self.pop_size]]
@@ -199,16 +193,20 @@ class genetic_algorithm:
             self.pruning()
             self.generations.append([self.population.copy(),self.accurancies_list.copy()])
             print("Generation", generation+1, "- Best fitness:", self.fitness[0])
-        print("mejor individuo", self.population[0])
+        print("Mejor individuo", self.population[0])
         #Se hace un ultimo entrenamiento de la red con el mejor modelo
         num_layers_dense = len(self.population[0])
         num_neurons = [x[0] for x in self.population[0]]
         activation = [x[1] for x in self.population[0]]
-        self.nn.define_model(num_layers_dense,num_neurons,activation)
-        self.nn.train_model(epochs=20)
-        self.nn.save_model() 
+
+        nn.preprocess_images(folds=5)
+        nn.define_model(num_layers_dense,num_neurons,activation)
+        nn.train_model(epochs=20)
+        nn.save_model() 
+
         mvp['text'] = "Mejor modelo: " + str(self.population[0])
         accurancy['text'] = "Precisión: " + str(self.fitness[0])
+
         self.show_result()
 
     def generate_tables(self):
@@ -270,7 +268,7 @@ class genetic_algorithm:
 
 #Ejecutar AG
 # nn = neuronal_network()
-# nn.preprocess_images(3)
+# nn.preprocess_images(5)
 # ga = genetic_algorithm(
 #     num_layers=(1,2), 
 #     num_neurons=(40,100), 
@@ -299,7 +297,6 @@ def iniciar():
     mut_rate_f_activation = float(entry_mut_rate_f_activation.get())
     folds = int(entry_folds.get())
     #Ejecutar AG
-    nn = neuronal_network()
     nn.preprocess_images(folds)
     ga = genetic_algorithm(
         num_layers, 
@@ -311,7 +308,6 @@ def iniciar():
         mut_rate_layer, 
         mut_rate_neurons, 
         mut_rate_f_activation,
-        nn=nn,
     )
     ga.evaluate()
 
